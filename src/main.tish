@@ -1,0 +1,617 @@
+// Pure Tish syntax highlighting for fenced code (hljs-style <span> classes, no external deps).
+// Token classes use prefix `tish-hl-` (e.g. tish-hl-keyword). Wrap output in <code class="… tish-hl">.
+
+fn hlEsc(s) {
+  if (s === null || s === undefined) {
+    return ""
+  }
+  let t = typeof s === "string" ? s : String(s)
+  let out = ""
+  let i = 0
+  while (i < t.length) {
+    let c = t.charAt(i)
+    if (c === "&") {
+      out = out + "&amp;"
+    } else if (c === "<") {
+      out = out + "&lt;"
+    } else if (c === ">") {
+      out = out + "&gt;"
+    } else if (c === "\"") {
+      out = out + "&quot;"
+    } else {
+      out = out + c
+    }
+    i = i + 1
+  }
+  return out
+}
+
+fn spanHl(kind, raw) {
+  return "<span class=\"tish-hl-" + kind + "\">" + hlEsc(raw) + "</span>"
+}
+
+fn normalizeLang(raw) {
+  let s = raw
+  if (s === null || s === undefined) {
+    s = ""
+  }
+  if (typeof s !== "string") {
+    s = String(s)
+  }
+  let t = s.trim().toLowerCase()
+  if (t === "" || t === "text" || t === "plaintext" || t === "plain") {
+    return "text"
+  }
+  if (t === "json") {
+    return "json"
+  }
+  if (t === "yaml" || t === "yml") {
+    return "yaml"
+  }
+  if (t === "ts" || t === "tsx" || t === "typescript") {
+    return "ts"
+  }
+  if (t === "js" || t === "jsx" || t === "javascript" || t === "mjs" || t === "cjs") {
+    return "js"
+  }
+  return "text"
+}
+
+fn isIdentStart(c) {
+  if (c >= "a" && c <= "z") {
+    return true
+  }
+  if (c >= "A" && c <= "Z") {
+    return true
+  }
+  if (c === "_" || c === "$") {
+    return true
+  }
+  return false
+}
+
+fn isIdentPart(c) {
+  if (isIdentStart(c)) {
+    return true
+  }
+  if (c >= "0" && c <= "9") {
+    return true
+  }
+  return false
+}
+
+fn isKeywordJs(w) {
+  return (
+    w === "break"
+    || w === "case"
+    || w === "catch"
+    || w === "class"
+    || w === "const"
+    || w === "continue"
+    || w === "debugger"
+    || w === "default"
+    || w === "delete"
+    || w === "do"
+    || w === "else"
+    || w === "export"
+    || w === "extends"
+    || w === "finally"
+    || w === "for"
+    || w === "function"
+    || w === "if"
+    || w === "import"
+    || w === "in"
+    || w === "instanceof"
+    || w === "let"
+    || w === "new"
+    || w === "return"
+    || w === "super"
+    || w === "switch"
+    || w === "this"
+    || w === "throw"
+    || w === "try"
+    || w === "typeof"
+    || w === "var"
+    || w === "void"
+    || w === "while"
+    || w === "with"
+    || w === "yield"
+    || w === "await"
+    || w === "static"
+    || w === "enum"
+    || w === "implements"
+    || w === "interface"
+    || w === "package"
+    || w === "protected"
+    || w === "private"
+    || w === "public"
+    || w === "abstract"
+    || w === "boolean"
+    || w === "byte"
+    || w === "char"
+    || w === "double"
+    || w === "final"
+    || w === "float"
+    || w === "goto"
+    || w === "int"
+    || w === "long"
+    || w === "native"
+    || w === "short"
+    || w === "synchronized"
+    || w === "throws"
+    || w === "transient"
+    || w === "volatile"
+    || w === "null"
+    || w === "true"
+    || w === "false"
+    || w === "undefined"
+    || w === "async"
+    || w === "from"
+    || w === "as"
+    || w === "of"
+  )
+}
+
+fn isKeywordTsExtra(w) {
+  return w === "type" || w === "readonly" || w === "keyof" || w === "infer" || w === "declare" || w === "namespace" || w === "module" || w === "is" || w === "asserts" || w === "satisfies" || w === "using"
+}
+
+fn readJsonStringToken(s, start) {
+  let n = s.length
+  if (start >= n || s.charAt(start) !== "\"") {
+    return { token: "", end: start }
+  }
+  let i = start + 1
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === "\\") {
+      if (i + 1 < n) {
+        i = i + 2
+        continue
+      }
+      i = i + 1
+      continue
+    }
+    if (c === "\"") {
+      return { token: s.slice(start, i + 1), end: i + 1 }
+    }
+    i = i + 1
+  }
+  return { token: s.slice(start), end: n }
+}
+
+fn readJsonNumberToken(s, start) {
+  let n = s.length
+  let i = start
+  if (i < n && s.charAt(i) === "-") {
+    i = i + 1
+  }
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c >= "0" && c <= "9") {
+      i = i + 1
+      continue
+    }
+    if (c === ".") {
+      i = i + 1
+      while (i < n) {
+        let d = s.charAt(i)
+        if (d >= "0" && d <= "9") {
+          i = i + 1
+        } else {
+          break
+        }
+      }
+      break
+    }
+    break
+  }
+  if (i < n && (s.charAt(i) === "e" || s.charAt(i) === "E")) {
+    i = i + 1
+    if (i < n && (s.charAt(i) === "+" || s.charAt(i) === "-")) {
+      i = i + 1
+    }
+    while (i < n) {
+      let d2 = s.charAt(i)
+      if (d2 >= "0" && d2 <= "9") {
+        i = i + 1
+      } else {
+        break
+      }
+    }
+  }
+  return { token: s.slice(start, i), end: i }
+}
+
+fn highlightJson(s) {
+  let n = s.length
+  let i = 0
+  let out = ""
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") {
+      let j = i
+      while (j < n) {
+        let d = s.charAt(j)
+        if (d === " " || d === "\t" || d === "\n" || d === "\r") {
+          j = j + 1
+        } else {
+          break
+        }
+      }
+      out = out + hlEsc(s.slice(i, j))
+      i = j
+      continue
+    }
+    if (c === "\"") {
+      let st = readJsonStringToken(s, i)
+      out = out + spanHl("string", st["token"])
+      i = st["end"]
+      continue
+    }
+    if (c === "{" || c === "}" || c === "[" || c === "]" || c === ":" || c === ",") {
+      out = out + spanHl("punctuation", c)
+      i = i + 1
+      continue
+    }
+    if ((c >= "0" && c <= "9") || c === "-") {
+      let num = readJsonNumberToken(s, i)
+      if (num["token"].length > 0) {
+        out = out + spanHl("number", num["token"])
+        i = num["end"]
+        continue
+      }
+    }
+    if (i + 3 <= n && s.slice(i, i + 4) === "true") {
+      out = out + spanHl("literal", "true")
+      i = i + 4
+      continue
+    }
+    if (i + 4 <= n && s.slice(i, i + 5) === "false") {
+      out = out + spanHl("literal", "false")
+      i = i + 5
+      continue
+    }
+    if (i + 3 <= n && s.slice(i, i + 4) === "null") {
+      out = out + spanHl("literal", "null")
+      i = i + 4
+      continue
+    }
+    out = out + hlEsc(c)
+    i = i + 1
+  }
+  return out
+}
+
+fn trimLineKey(s) {
+  let a = 0
+  let b = s.length
+  while (a < b) {
+    let c = s.charAt(a)
+    if (c !== " " && c !== "\t" && c !== "\r") {
+      break
+    }
+    a = a + 1
+  }
+  while (b > a) {
+    let c2 = s.charAt(b - 1)
+    if (c2 !== " " && c2 !== "\t" && c2 !== "\r" && c2 !== "\n") {
+      break
+    }
+    b = b - 1
+  }
+  return s.slice(a, b)
+}
+
+fn highlightYamlLine(line) {
+  let t = trimLineKey(line)
+  if (t.length > 0 && t.charAt(0) === "#") {
+    return spanHl("comment", line)
+  }
+  let idx = line.indexOf(":")
+  if (idx > 0) {
+    let head = line.slice(0, idx + 1)
+    let rest = line.slice(idx + 1)
+    if (head.indexOf("#") === -1 && head.indexOf("\"") === -1 && head.indexOf("'") === -1) {
+      return spanHl("attr", head) + hlEsc(rest)
+    }
+  }
+  return hlEsc(line)
+}
+
+fn highlightYaml(s) {
+  let lines = s.split("\n")
+  let out = ""
+  let li = 0
+  while (li < lines.length) {
+    if (li > 0) {
+      out = out + "\n"
+    }
+    out = out + highlightYamlLine(lines[li])
+    li = li + 1
+  }
+  return out
+}
+
+fn readLineComment(s, start) {
+  let n = s.length
+  let i = start
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === "\n") {
+      return { token: s.slice(start, i + 1), end: i + 1 }
+    }
+    i = i + 1
+  }
+  return { token: s.slice(start), end: n }
+}
+
+fn readBlockComment(s, start) {
+  let n = s.length
+  let i = start + 2
+  while (i + 1 < n) {
+    if (s.charAt(i) === "*" && s.charAt(i + 1) === "/") {
+      return { token: s.slice(start, i + 2), end: i + 2 }
+    }
+    i = i + 1
+  }
+  return { token: s.slice(start), end: n }
+}
+
+fn readStringGeneric(s, start, quote) {
+  let n = s.length
+  let i = start + 1
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === "\\") {
+      if (i + 1 < n) {
+        i = i + 2
+        continue
+      }
+      i = i + 1
+      continue
+    }
+    if (c === quote) {
+      return { token: s.slice(start, i + 1), end: i + 1 }
+    }
+    i = i + 1
+  }
+  return { token: s.slice(start), end: n }
+}
+
+fn readBacktickTemplate(s, start) {
+  let n = s.length
+  let i = start + 1
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === "\\") {
+      if (i + 1 < n) {
+        i = i + 2
+        continue
+      }
+      i = i + 1
+      continue
+    }
+    if (c === "`") {
+      return { token: s.slice(start, i + 1), end: i + 1 }
+    }
+    i = i + 1
+  }
+  return { token: s.slice(start), end: n }
+}
+
+fn readNumberJs(s, start) {
+  let n = s.length
+  let i = start
+  if (i + 1 < n && s.charAt(i) === "0") {
+    let nx = s.charAt(i + 1)
+    if (nx === "x" || nx === "X") {
+      i = i + 2
+      while (i < n) {
+        let c = s.charAt(i)
+        if ((c >= "0" && c <= "9") || (c >= "a" && c <= "f") || (c >= "A" && c <= "F")) {
+          i = i + 1
+        } else {
+          break
+        }
+      }
+      return { token: s.slice(start, i), end: i }
+    }
+    if (nx === "b" || nx === "B" || nx === "o" || nx === "O") {
+      i = i + 2
+      while (i < n) {
+        let d = s.charAt(i)
+        if (d >= "0" && d <= "9") {
+          i = i + 1
+        } else {
+          break
+        }
+      }
+      return { token: s.slice(start, i), end: i }
+    }
+  }
+  if (s.charAt(i) === "-") {
+    i = i + 1
+  }
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c >= "0" && c <= "9") {
+      i = i + 1
+      continue
+    }
+    if (c === ".") {
+      i = i + 1
+      while (i < n) {
+        let d = s.charAt(i)
+        if (d >= "0" && d <= "9") {
+          i = i + 1
+        } else {
+          break
+        }
+      }
+      break
+    }
+    break
+  }
+  if (i < n && (s.charAt(i) === "e" || s.charAt(i) === "E")) {
+    i = i + 1
+    if (i < n && (s.charAt(i) === "+" || s.charAt(i) === "-")) {
+      i = i + 1
+    }
+    while (i < n) {
+      let d2 = s.charAt(i)
+      if (d2 >= "0" && d2 <= "9") {
+        i = i + 1
+      } else {
+        break
+      }
+    }
+  }
+  if (i === start) {
+    return { token: "", end: start }
+  }
+  return { token: s.slice(start, i), end: i }
+}
+
+fn highlightJsLike(s, tsMode) {
+  let n = s.length
+  let i = 0
+  let out = ""
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") {
+      let j = i
+      while (j < n) {
+        let d = s.charAt(j)
+        if (d === " " || d === "\t" || d === "\n" || d === "\r") {
+          j = j + 1
+        } else {
+          break
+        }
+      }
+      out = out + hlEsc(s.slice(i, j))
+      i = j
+      continue
+    }
+    if (i + 1 < n && c === "/" && s.charAt(i + 1) === "/") {
+      let cm = readLineComment(s, i)
+      out = out + spanHl("comment", cm["token"])
+      i = cm["end"]
+      continue
+    }
+    if (i + 1 < n && c === "/" && s.charAt(i + 1) === "*") {
+      let bm = readBlockComment(s, i)
+      out = out + spanHl("comment", bm["token"])
+      i = bm["end"]
+      continue
+    }
+    if (c === "\"") {
+      let st = readStringGeneric(s, i, "\"")
+      out = out + spanHl("string", st["token"])
+      i = st["end"]
+      continue
+    }
+    if (c === "'") {
+      let st2 = readStringGeneric(s, i, "'")
+      out = out + spanHl("string", st2["token"])
+      i = st2["end"]
+      continue
+    }
+    if (c === "`") {
+      let bt = readBacktickTemplate(s, i)
+      out = out + spanHl("string", bt["token"])
+      i = bt["end"]
+      continue
+    }
+    if (
+      (c >= "0" && c <= "9")
+      || (c === "." && i + 1 < n && s.charAt(i + 1) >= "0" && s.charAt(i + 1) <= "9")
+      || (c === "-" && i + 1 < n && s.charAt(i + 1) >= "0" && s.charAt(i + 1) <= "9")
+    ) {
+      let num = readNumberJs(s, i)
+      if (num["token"].length > 0) {
+        out = out + spanHl("number", num["token"])
+        i = num["end"]
+        continue
+      }
+    }
+    if (isIdentStart(c)) {
+      let j = i
+      while (j < n && isIdentPart(s.charAt(j))) {
+        j = j + 1
+      }
+      let w = s.slice(i, j)
+      let kw = isKeywordJs(w)
+      if (tsMode) {
+        kw = kw || isKeywordTsExtra(w)
+      }
+      if (kw) {
+        out = out + spanHl("keyword", w)
+      } else {
+        out = out + hlEsc(w)
+      }
+      i = j
+      continue
+    }
+    if (c === "{" || c === "}" || c === "(" || c === ")" || c === "[" || c === "]" || c === ";" || c === "," || c === ":" || c === "." || c === "?" || c === "!" || c === "=" || c === "+" || c === "-" || c === "*" || c === "/" || c === "%" || c === "&" || c === "|" || c === "^" || c === "~" || c === "<" || c === ">") {
+      out = out + spanHl("punctuation", c)
+      i = i + 1
+      continue
+    }
+    out = out + hlEsc(c)
+    i = i + 1
+  }
+  return out
+}
+
+// Public: HTML fragment safe inside <pre><code class="language-… tish-hl">…</code></pre>
+export fn highlightCodeToHtml(code, langRaw) {
+  let c = code
+  if (c === null || c === undefined) {
+    c = ""
+  }
+  if (typeof c !== "string") {
+    c = String(c)
+  }
+  let lang = normalizeLang(langRaw)
+  if (lang === "json") {
+    return highlightJson(c)
+  }
+  if (lang === "yaml") {
+    return highlightYaml(c)
+  }
+  if (lang === "js") {
+    return highlightJsLike(c, false)
+  }
+  if (lang === "ts") {
+    return highlightJsLike(c, true)
+  }
+  return hlEsc(c)
+}
+
+// Optional <style> fragment for print / iframe preview (light + dark).
+export fn defaultSyntaxHighlightCss() {
+  let css = ""
+  css = css + "pre code.tish-hl .tish-hl-keyword {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 72%, #569cd6);\n"
+  css = css + "  font-weight: 600;\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-string {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 65%, #98c379);\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-comment {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 52%, Canvas);\n"
+  css = css + "  font-style: italic;\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-number,\n"
+  css = css + "pre code.tish-hl .tish-hl-literal {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 68%, #d19a66);\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-punctuation {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 78%, #56b6c2);\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-attr {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 70%, #e06c75);\n"
+  css = css + "}\n"
+  return css
+}

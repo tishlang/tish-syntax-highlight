@@ -1,0 +1,30 @@
+{
+  "name": "@tishlang/tish-syntax-highlight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure Tish fenced-code syntax highlighting (hljs-style spans, no external deps)",
+  "type": "module",
+  "tish": {
+    "module": "./src/main.tish"
+  },
+  "main": "./dist/tish-syntax-highlight.js",
+  "exports": {
+    ".": {
+      "tish": "./src/main.tish",
+      "import": "./dist/tish-syntax-highlight.js",
+      "default": "./dist/tish-syntax-highlight.js"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tishlang/tish": "1.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tishlang/tish-syntax-highlight.git"
+  },
+  "scripts": {
+    "build": "tish build --target js --no-optimize src/main.tish -o dist/tish-syntax-highlight.js && TISH_EXPORT_OUT=dist/tish-syntax-highlight.js TISH_EXPORT_NAMES=highlightCodeToHtml,defaultSyntaxHighlightCss node scripts/append-exports.mjs",
+    "test": "node ./test/run_node.mjs"
+  }
+}
