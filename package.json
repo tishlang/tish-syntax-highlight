@@ -2,6 +2,7 @@
   "name": "@tishlang/tish-syntax-highlight",
   "version": "0.1.0",
   "description": "Pure Tish fenced-code syntax highlighting (hljs-style spans, no external deps)",
+  "license": "MIT",
   "type": "module",
   "tish": {
     "module": "./src/main.tish"
