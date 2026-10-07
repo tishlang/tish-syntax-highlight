@@ -27,12 +27,14 @@
   },
   "scripts": {
     "build": "tish build --target js --no-optimize src/main.tish -o dist/tish-syntax-highlight.js && TISH_EXPORT_OUT=dist/tish-syntax-highlight.js TISH_EXPORT_NAMES=highlightCodeToHtml,defaultSyntaxHighlightCss node scripts/append-exports.mjs",
-    "test": "node ./test/run_node.mjs"
+    "test": "node ./test/run_node.mjs",
+    "prepack": "npm run build"
   },
   "publishConfig": {
     "access": "public"
   },
   "files": [
+    "dist",
     "src",
     "README.md"
   ]
