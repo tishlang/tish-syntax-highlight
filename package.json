@@ -15,9 +15,11 @@
       "default": "./dist/tish-syntax-highlight.js"
     }
   },
-  "dependencies": {},
   "devDependencies": {
-    "@tishlang/tish": "1.9.2"
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@tishlang/tish": "1.9.2",
+    "semantic-release": "^25.0.9"
   },
   "repository": {
     "type": "git",
