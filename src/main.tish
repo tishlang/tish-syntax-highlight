@@ -54,6 +54,12 @@ fn normalizeLang(raw) {
   if (t === "js" || t === "jsx" || t === "javascript" || t === "mjs" || t === "cjs") {
     return "js"
   }
+  if (t === "tish") {
+    return "tish"
+  }
+  if (t === "sh" || t === "bash" || t === "shell" || t === "zsh" || t === "console") {
+    return "sh"
+  }
   return "text"
 }
 
@@ -473,7 +479,8 @@ fn readNumberJs(s, start) {
   return { token: s.slice(start, i), end: i }
 }
 
-fn highlightJsLike(s, tsMode) {
+// JavaScript, TypeScript (tsMode) and Tish (tishMode: TypeScript's extras plus `fn`).
+fn highlightJsLike(s, tsMode, tishMode) {
   let n = s.length
   let i = 0
   let out = ""
@@ -545,6 +552,9 @@ fn highlightJsLike(s, tsMode) {
       if (tsMode) {
         kw = kw || isKeywordTsExtra(w)
       }
+      if (tishMode && w === "fn") {
+        kw = true
+      }
       if (kw) {
         out = out + spanHl("keyword", w)
       } else {
@@ -560,6 +570,94 @@ fn highlightJsLike(s, tsMode) {
     }
     out = out + hlEsc(c)
     i = i + 1
+  }
+  return out
+}
+
+// Shell: # comments, quoted strings, $VAR / ${VAR} / $(…) openers, -flags and --flags, and the
+// command at the start of each line (and after |, &&, ||, ;) as a function.
+fn highlightSh(s) {
+  let n = s.length
+  let i = 0
+  let out = ""
+  let atCommand = true
+  while (i < n) {
+    let c = s.charAt(i)
+    if (c === "\n") {
+      out = out + c
+      atCommand = true
+      i = i + 1
+      continue
+    }
+    if (c === " " || c === "\t") {
+      out = out + c
+      i = i + 1
+      continue
+    }
+    if (c === "#" && (i === 0 || s.charAt(i - 1) === " " || s.charAt(i - 1) === "\t" || s.charAt(i - 1) === "\n")) {
+      let j = i
+      while (j < n && s.charAt(j) !== "\n") {
+        j = j + 1
+      }
+      out = out + spanHl("comment", s.slice(i, j))
+      i = j
+      continue
+    }
+    if (c === "'" || c === "\"") {
+      let j = i + 1
+      while (j < n && s.charAt(j) !== c) {
+        if (c === "\"" && s.charAt(j) === "\\") {
+          j = j + 1
+        }
+        j = j + 1
+      }
+      j = j < n ? j + 1 : n
+      out = out + spanHl("string", s.slice(i, j))
+      atCommand = false
+      i = j
+      continue
+    }
+    if (c === "$") {
+      let j = i + 1
+      if (j < n && (s.charAt(j) === "{" || s.charAt(j) === "(")) {
+        j = j + 1
+      } else {
+        while (j < n && isIdentPart(s.charAt(j))) {
+          j = j + 1
+        }
+      }
+      out = out + spanHl("literal", s.slice(i, j))
+      atCommand = false
+      i = j
+      continue
+    }
+    if (c === "|" || c === ";" || c === "&" || c === ">" || c === "<" || c === "(" || c === ")" || c === "{" || c === "}") {
+      out = out + spanHl("punctuation", c)
+      if (c === "|" || c === ";" || c === "&") {
+        atCommand = true
+      }
+      i = i + 1
+      continue
+    }
+    let j = i
+    while (j < n && s.charAt(j) !== " " && s.charAt(j) !== "\t" && s.charAt(j) !== "\n" && s.charAt(j) !== "|" && s.charAt(j) !== ";" && s.charAt(j) !== "&" && s.charAt(j) !== ">" && s.charAt(j) !== "<" && s.charAt(j) !== "'" && s.charAt(j) !== "\"" && s.charAt(j) !== "$" && s.charAt(j) !== ")") {
+      j = j + 1
+    }
+    if (j === i) {
+      out = out + hlEsc(c)
+      i = i + 1
+      continue
+    }
+    let w = s.slice(i, j)
+    if (atCommand && w.indexOf("=") < 0) {
+      out = out + spanHl("function", w)
+      atCommand = false
+    } else if (w.charAt(0) === "-") {
+      out = out + spanHl("attr", w)
+    } else {
+      out = out + hlEsc(w)
+    }
+    i = j
   }
   return out
 }
@@ -581,10 +679,16 @@ export fn highlightCodeToHtml(code, langRaw) {
     return highlightYaml(c)
   }
   if (lang === "js") {
-    return highlightJsLike(c, false)
+    return highlightJsLike(c, false, false)
   }
   if (lang === "ts") {
-    return highlightJsLike(c, true)
+    return highlightJsLike(c, true, false)
+  }
+  if (lang === "tish") {
+    return highlightJsLike(c, true, true)
+  }
+  if (lang === "sh") {
+    return highlightSh(c)
   }
   return hlEsc(c)
 }
@@ -609,6 +713,9 @@ export fn defaultSyntaxHighlightCss() {
   css = css + "}\n"
   css = css + "pre code.tish-hl .tish-hl-punctuation {\n"
   css = css + "  color: color-mix(in srgb, CanvasText 78%, #56b6c2);\n"
+  css = css + "}\n"
+  css = css + "pre code.tish-hl .tish-hl-function {\n"
+  css = css + "  color: color-mix(in srgb, CanvasText 70%, #61afef);\n"
   css = css + "}\n"
   css = css + "pre code.tish-hl .tish-hl-attr {\n"
   css = css + "  color: color-mix(in srgb, CanvasText 70%, #e06c75);\n"
